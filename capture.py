@@ -6,10 +6,12 @@ from PIL import ImageEnhance
 
 from time import sleep
 root = tkinter.Tk()
+root.title('snipaste')
 #指定窗口的大小
 root.geometry('100x50+400+300')
 #不允许改变窗口大小
 root.resizable(False,False)
+global top , left , ph , pw
 
 class Capture:
     def __init__(self, png):
@@ -21,10 +23,10 @@ class Capture:
         self.screenWidth = root.winfo_screenwidth()
         self.screenHeight = root.winfo_screenheight()
         #创建顶级组件容器
-        self.top = tkinter.Toplevel(root, width=self.screenWidth, height=self.screenHeight)
+        self.toplevel = tkinter.Toplevel(root, width=self.screenWidth, height=self.screenHeight)
         #不显示最大化、最小化按钮
-        self.top.overrideredirect(True)
-        self.canvas = tkinter.Canvas(self.top,bg='white', width=self.screenWidth, height=self.screenHeight)
+        self.toplevel.overrideredirect(True)
+        self.canvas = tkinter.Canvas(self.toplevel,bg='white', width=self.screenWidth, height=self.screenHeight)
         #显示全屏截图，在全屏截图上进行区域截图
         self.image = tkinter.PhotoImage(file=png)
         self.canvas.create_image(self.screenWidth//2, self.screenHeight//2, image=self.image)
@@ -75,7 +77,7 @@ class Capture:
         self.canvas.bind('<Motion>', onMouseMove)
 
         def onEscPressd(event):
-            self.top.destroy()
+            self.toplevel.destroy()
         self.canvas.bind('<Cancel>', onEscPressd)
 
         #获取鼠标左键抬起的位置，保存区域截图
@@ -89,48 +91,19 @@ class Capture:
             #考虑鼠标左键从右下方按下而从左上方抬起的截图
             left, right = sorted([self.X.get(), event.x])
             top, bottom = sorted([self.Y.get(), event.y])
-            self.pic =ImageGrab.grab((left+1, top+1, right, bottom))
-            self.pw = right - left 
-            self.ph = bottom - top
+            pic =ImageGrab.grab((left+1, top+1, right, bottom))
+            pw = right - left - 1  #减去边缘线1px
+            ph = bottom - top - 1
             #关闭顶级容器
-            self.top.destroy()
+            self.toplevel.destroy()
             #弹出保存截图对话框
             # fileName = tkinter.filedialog.asksaveasfilename(title='保存截图', filetypes=[('image','*.jpg *.png')])
             if pic:
-                pic.save('./temp.bmp')
-                #关闭当前窗口
-                # self.top.destroy()
+                pic.save('./temp.gif')
+                # 关闭当前窗口
+                self.toplevel.destroy()
         self.canvas.bind('<ButtonRelease-1>', onLeftButtonUp)
         self.canvas.pack(fill=tkinter.BOTH, expand=tkinter.YES)
 
-
-
-#开始截图
-def buttonCaptureClick():
-    #最小化主窗口
-    root.state('icon')
-    sleep(0.2)
-    filename ='temp.gif'
-    im =ImageGrab.grab()
-    im = ImageEnhance.Brightness(im).enhance(0.8)
-    im.save(filename)
-    im.close()
-    #显示全屏幕截图
-    w =Capture(filename)
-    buttonCapture.wait_window(w.top)
-    # pdb.set_trace()
-    result = w.getText()
-    printresult(result)
-    #截图结束，恢复主窗口，并删除临时的全屏幕截图文件
-    root.state('normal')
-    os.remove(filename)
-
-
-buttonCapture = tkinter.Button(root, text='截图', command=buttonCaptureClick)
-buttonCapture.place(x=10, y=10, width=80, height=30)
-#启动消息主循环
-try:
-    root.mainloop()
-except:
-    root.destroy()
+l, t, w, h = left, top, pw, ph
 
