@@ -1,0 +1,3 @@
+右上角图标：
+	appindicator
+	

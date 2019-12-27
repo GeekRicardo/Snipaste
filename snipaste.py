@@ -136,8 +136,9 @@ def buttonCaptureClick():
     im.save(filename)
     im.close()
     #显示全屏幕截图
-    w =Capture(filename, p)
     # pdb.set_trace()
+    pdb.set_trace()
+    w =Capture(filename, p)
     print(p)
     top = tkinter.Toplevel(root)
     top.overrideredirect(True)
