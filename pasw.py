@@ -21,9 +21,10 @@ pasteImg = None
 
 class PastWindow(tk.Tk):
 
-    def __init__(self, capture, *args, **kw):
+    def __init__(self, capture, png, *args, **kw):
         super().__init__()
         self.configure(background='black')
+        self.imgPath = capture.src
         self.overrideredirect(True)
         self.capture = capture
         self.width, self.height = self.capture.width, self.capture.height
@@ -37,11 +38,12 @@ class PastWindow(tk.Tk):
         self.bind('<ButtonPress-1>', self._on_tap)   # 设置窗口最大化大小
         self.bind('<Double-Button-1>', self.quit)
         self.resizable(width=False, height=True)    # 设置窗口宽度不可变，高度可变
-        # self.label = tk.Label(self, width=100, height=60)
+        # self.top = tk.Toplevel(self, width=self.width, height=self.height)
+        # self.top.overrideredirect(True)
         self.canvas = tk.Canvas(self, width=self.width,
                                 height=self.height, bg='white')
-        self.canvas.place(x=-2, y=-1)
-        self.im = tk.PhotoImage(file=capture.src)
+        # self.canvas.place(x=-1, y=-1)
+        self.im = tk.PhotoImage(file=png)
         self.img = self.canvas.create_image(self.p_x // 2, self.p_y // 2, image=self.im)
         self.canvas.pack()
 

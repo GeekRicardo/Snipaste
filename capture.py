@@ -55,6 +55,7 @@ class Capture:
             root, width=self.screenWidth, height=self.screenHeight)
         # 不显示最大化、最小化按钮
         self.top.overrideredirect(True)
+        self.img = None
         self.canvas = tkinter.Canvas(
             self.top,
             bg='white',
@@ -65,6 +66,7 @@ class Capture:
         self.canvas.create_image(
             self.screenWidth // 2, self.screenHeight // 2, image=self.image)
         self.canvas.pack()
+        self.sni_list = []
 
         # 鼠标左键按下的位置
         def onLeftButtonDown(event):
@@ -119,12 +121,12 @@ class Capture:
                 event.x, 0, event.x, self.screenHeight, fill='white')
         self.canvas.bind('<Motion>', onMouseMove)
 
-        def onEscPressd(event):
+        def onEscPressd( event):
             self.top.destroy()
         self.canvas.bind('<Cancel>', onEscPressd)
 
         # 获取鼠标左键抬起的位置，保存区域截图
-        def onLeftButtonUp(event):
+        def onLeftButtonUp( event):
             self.sel = False
             try:
                 self.canvas.delete(lastDraw)
@@ -144,9 +146,8 @@ class Capture:
             # fileName = tkinter.filedialog.asksaveasfilename(title='保存截图',
             # filetypes=[('image','*.jpg *.png')])
             if self.pic:
-                self.src = './cut.gif'
+                self.src = './cut' + str(len(self.sni_list)) + '.gif'
                 self.pic.save(self.src)
-                self.img = ImageTk.PhotoImage(Image.open(self.src))
                 # 关闭当前窗口
                 # self.top.destroy()
         self.canvas.bind('<ButtonRelease-1>', onLeftButtonUp)
@@ -177,13 +178,8 @@ def buttonCaptureClick():
     buttonCapture.wait_window(w.top)
 
     # 创建贴图对象
-    pastew = PastWindow(w)
+    pastew = PastWindow(w, './cut' + str(len(w.sni_list)) + '.gif')
 
-    # pdb.set_trace()
-    # result = w.getText()
-    # w.getText()
-    # printresult(result)
-    # 截图结束，恢复主窗口，并删除临时的全屏幕截图文件
     root.state('normal')
     for box in resultboxes:
         try:
