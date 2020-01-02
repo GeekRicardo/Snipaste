@@ -13,22 +13,23 @@ import atexit
 import threading
 import time
 import sys
-import psutil
+import psutil, pdb
 
 from PIL import Image, ImageTk
+
 
 pasteImg = None
 
 class PastWindow(tk.Tk):
 
-    def __init__(self, capture, png, *args, **kw):
+    def __init__(self, capture, *args, **kw):
         super().__init__()
         self.configure(background='black')
-        self.imgPath = capture.src
+        # self.imgPath = capture.src
         self.overrideredirect(True)
         self.capture = capture
-        self.width, self.height = self.capture.width, self.capture.height
-        self.p_x, self.p_y = self.capture.position[0], self.capture.position[1]
+        self.width, self.height = capture[1] - capture[0], capture[3] - capture[2]
+        self.p_x, self.p_y = capture[0] , capture[1]
         self.isShow = True  # 是否隐藏
         self.contentType = 'img'	# 默认为图片
         # self.wm_attributes("-alpha", 0.55)      # 透明度
@@ -43,8 +44,12 @@ class PastWindow(tk.Tk):
         self.canvas = tk.Canvas(self, width=self.width,
                                 height=self.height, bg='white')
         # self.canvas.place(x=-1, y=-1)
-        self.im = tk.PhotoImage(file=png)
+        # self.im = tk.PhotoImage(file=png)
+        # pdb.set_trace()
+        img = Image.open("./cut.gif")
+        self.im = ImageTk.PhotoImage(img)
         self.img = self.canvas.create_image(self.p_x // 2, self.p_y // 2, image=self.im)
+        # self.img.image=self.im
         self.canvas.pack()
 
         self.geometry("%sx%s" % (self.width, self.height))
@@ -61,14 +66,6 @@ class PastWindow(tk.Tk):
 
         # self.canvas.delete("all")
         # # 分割线
-        # self.canvas.create_line(
-        #     0, 20, self.width, 20, fill='#bfbfbf')
-        # self.canvas.create_line(
-        #     0, 35, self.width, 35, fill='#bfbfbf')
-        # self.canvas.create_line(
-        #     0, 50, self.width, 50, fill='#bfbfbf')
-        # self.canvas.create_line(
-        #     self.width / 2, 50, self.width / 2, self.height, fill='#bfbfbf')
         # 刷新
         self.update()
         self.after(100, self.refresh_data)   # 这里的单位为毫秒
@@ -92,7 +89,7 @@ class PastWindow(tk.Tk):
         # self.root_x/y  窗口左上角相对屏幕左上角的距离
         offset_x = event.x_root - self.root_x
         offset_y = event.y_root - self.root_y
-
+        
         abs_x = self.abs_x + offset_x
         abs_y = self.abs_y + offset_y
 

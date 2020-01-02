@@ -155,27 +155,16 @@ class MyCapture:
         self.canvas.bind('<ButtonRelease-1>', onLeftButtonUp)
         self.canvas.pack(fill=tkinter.BOTH, expand=tkinter.YES)
 
-    def draw(self):
-        if(self.canvas):
-            # self.canvas.destroy()
-            pass
-        self.zoom_width = int(self.width * self.zoom)
-        self.zoom_height = int(self.height  * self.zoom)
-        self.canvas['width'] = self.zoom_width
-        self.canvas['height'] = self.zoom_height
-        self.img = ImageTk.PhotoImage(Image.open("./temp.gif").resize((self.zoom_width, self.zoom_height),Image.ANTIALIAS))
-        self.canvas.create_image(self.zoom_width // 2 , self.zoom_height // 2 , image=self.img)
-        self.canvas.pack()
     
     def show(self):
         self.zoom = 1
         self.snip_top = tkinter.Toplevel(width=self.width - 1, height=self.height - 1)
         self.snip_top.overrideredirect(True)
-        
-        self.canvas = tkinter.Canvas(self.snip_top, bg='white', width=self.width, height=self.height)
-        self.draw()
+        self.canvas = tkinter.Canvas(self.snip_top, bg='white', width=self.width + 1, height=self.height + 1)
+        self.img = ImageTk.PhotoImage(Image.open("./temp.gif"))
+        self.canvas.create_image(self.width // 2, self.height //2 , image=self.img)
+        self.canvas.pack()
         self.snip_top.geometry("+%s+%s" % (self.x, self.y))
-
 
         def _on_move( event):
             # self.root_x/y  窗口左上角相对屏幕左上角的距离
@@ -185,12 +174,12 @@ class MyCapture:
             abs_x = self.abs_x + offset_x
             abs_y = self.abs_y + offset_y
 
-            # if self.width and self.height:
-            #     geo_str = "%sx%s+%s+%s" % (self.width, self.height,
-            #                                abs_x,
-            #                                abs_y)
-            # else:
-            geo_str="+%s+%s" % (abs_x, abs_y)
+            if self.width and self.height:
+                geo_str = "%sx%s+%s+%s" % (self.width, self.height,
+                                           abs_x,
+                                           abs_y)
+            else:
+                geo_str="+%s+%s" % (abs_x, abs_y)
             self.snip_top.geometry(geo_str)
         self.snip_top.bind('<B1-Motion>', _on_move)
 
@@ -199,23 +188,23 @@ class MyCapture:
             self.abs_x, self.abs_y=self.snip_top.winfo_x(), self.snip_top.winfo_y()
         self.snip_top.bind("<Button-1>", _on_tap)
 
-        def zoom_up(event):
+
+        def _on_zoom(event):
             print(event)
-            print(event.delta, '放大')
-            print(self.zoom)
-            self.zoom += 0.1 
-            # self.width *= self.zoom
-            # self.height *= self.zoom
-            self.draw()
-            self.snip_top.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
-        self.snip_top.bind('<Button-4>', zoom_up)
-        def zoom_down(event):
-            print(event.delta, 'xiao')
-            print(self.zoom)
-            self.zoom -= 0.1 
-            self.draw()
-            self.snip_top.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
-        self.snip_top.bind('<Button-5>', zoom_down)
+            if event.delta > 0:
+                # 滚轮往上滚动，放大
+                print(event.delta, '放大')
+                self.zoom += 0.1 
+                self.width *= self.zoom
+                self.height *= self.zoom
+                self.snip_top.geometry('%sx%s' % (self.width, self.height))
+            else:
+                print(event.delta, 'xiao')
+                self.zoom -= 0.1 
+                self.width *= self.zoom
+                self.height *= self.zoom
+                self.snip_top.geometry('%sx%s' % (self.width, self.height))
+        self.snip_top.bind("<MouseWheel>", _on_zoom)
         
         def quit(event):
             self.snip_top.destroy()
