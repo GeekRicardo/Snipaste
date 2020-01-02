@@ -5,8 +5,6 @@ import os
 import time
 from aip import AipOcr
 from PIL import ImageEnhance
-client = AipOcr('10684055', 'Y15dcjjkq2dLHB1NmdCN9ODI',
-                'keOYEXKG1RXnLyGLa4wfCr003kKE1zhh')
 import platform
 osName = platform.system()
 tail = ''   #换行尾部符
@@ -24,6 +22,7 @@ elif(osName == 'Darwin'):
     pass
 
 import pyxhook
+import sys
 
 
 root = tkinter.Tk()
@@ -200,9 +199,6 @@ class MyCapture:
         self.snip_top.bind("<Button-1>", _on_tap)
 
         def zoom_up(event):
-            print(event)
-            print(event.delta, '放大')
-            print(self.zoom)
             self.zoom += 0.1 
             # self.width *= self.zoom
             # self.height *= self.zoom
@@ -210,8 +206,6 @@ class MyCapture:
             self.snip_top.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
         self.snip_top.bind('<Button-4>', zoom_up)
         def zoom_down(event):
-            print(event.delta, 'xiao')
-            print(self.zoom)
             self.zoom -= 0.1 
             self.draw()
             self.snip_top.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
@@ -221,10 +215,52 @@ class MyCapture:
             self.snip_top.destroy()
             root.state('normal')
         self.snip_top.bind('<Double-Button-1>', quit)
-        # self.snip_top.mainloop()
+
+new_hook=pyxhook.HookManager()
+keys = ['Control_L', 'Alt_L', 'f']
+# 监听键盘
+ctrl , alt, f, cap = False, False, False, False
+def onkeypress(e):
+    global ctrl, alt, f, cap
+    if(cap):
+        buttonCaptureClick()
+        ctrl, alt, f, cap = False, False, False,False
+    k = e.Key
+    if(k in keys):
+        if(k == keys[0]):
+            ctrl = True
+            print('ctrl')
+            return
+        if(ctrl == True and k == keys[1]):
+            alt = True
+            print('ctrl-alt')
+            return
+        else:
+            ctrl = False
+            print('ctrl - no alt')
+        if(alt == True and k == keys[2]):
+            f = True
+            cap = True
+            print('capture')
+        else:
+            ctrl , alt, f = False, False, False
+    else:
+        ctrl , alt, f = False, False, False
+def onkeyup(e):
+    global ctrl, alt, f
+    k = e.Key
+    if(k in keys):
+        if(k == keys[0]):
+            ctrl = False
+        if(k == keys[1]):
+            alt = False
+        if(k == keys[2]):
+            f = False
 
 
-
+new_hook.KeyDown=onkeypress
+new_hook.HookKeyboard()
+new_hook.start()
 
 # 开始截图
 
@@ -249,39 +285,14 @@ def buttonCaptureClick():
     # 截图结束，恢复主窗口，并删除临时的全屏幕截图文件
 
 
-keys = ['Control_L', 'Alt_L', 'f']
-# 监听键盘
-ctrl , alt, f, cap = False, False, False, False
-def onkeypress(e):
-    global ctrl, alt, f, cap
-    if(cap):
-        buttonCaptureClick()
-        ctrl, alt, f, cap = False, False, False,False
-    k = e.Key
-    if(k in keys):
-        if(k == keys[0]):
-            ctrl = True
-        if(ctrl == True and k == keys[1]):
-            alt = True
-        else:
-            ctrl = False
-        if(alt == True and k == keys[2]):
-            f = True
-            cap = True
-        else:
-            ctrl , alt, f = False, False, False
 
-
-# new_hook=pyxhook.HookManager()
-# new_hook.KeyDown=onkeypress
-# new_hook.HookKeyboard()
-# new_hook.start()
 
 
 def key(event):
     buttonCaptureClick()
 root.bind('<Control-Alt-f>', key)
 def quit(event):
+    new_hook.cancel()
     exit(0)
 root.bind('<Double-Button-1>', quit)
 
@@ -289,7 +300,9 @@ buttonCapture = tkinter.Button(root, text='截图', command=buttonCaptureClick)
 buttonCapture.place(x=110, y=10, width=80, height=30)
 # 启动消息主循环
 try:
+    
+    # buttonCaptureClick()
     root.mainloop()
-    print('after loop')
 except Exception as e:
     root.destroy()
+    new_hook.stop()

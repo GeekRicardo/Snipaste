@@ -9,7 +9,7 @@ def onkeypress(e):
         print('c+a+f')
         ctrl, alt, f = False, False, False
     k = e.Key
-    print('--- ', e)
+    print('down--- ', e)
     if(k in keys):
         if(k == keys[0]):
             ctrl = True
@@ -17,9 +17,12 @@ def onkeypress(e):
             alt = True
         elif(k == keys[2]):
             f = True
+def onkeyup(e):
+    print('up---', e)
 
 new_hook=pyxhook.HookManager()
 new_hook.KeyDown=onkeypress
+new_hook.KeyUp=onkeyup
 new_hook.HookKeyboard()
 new_hook.start()
 print('aaa234')
