@@ -1,74 +1,97 @@
-import tkinter
-import tkinter.filedialog
+# -*- coding: utf-8 -*-
+# @Author: Ricardo
+# @Date:   2019-11-03 16:48:28
+# @Last Modified by:   Ricardo
+# @Last Modified time: 2019-11-15 21:27:03
+
+
+import tkinter as tk
+from tkinter.messagebox import *
 import os
-# import pdb
+import atexit
+import threading
 import time
-from aip import AipOcr
-from PIL import ImageEnhance
+import sys
+
+import pyxhook
+
+from PIL import Image, ImageTk, ImageEnhance
+
 import platform
 osName = platform.system()
 tail = ''   #换行尾部符
 if(osName == 'Windows'):
     tail = '\r\n'
     from PIL import ImageGrab
-    # 设置任务栏图标
-    import ctypes
-    myappid = 'Ricardo.Capture2Text.subproduct.V1.02'
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 elif(osName == 'Linux'):
     tail = '\n'
     import pyscreenshot as ImageGrab
 elif(osName == 'Darwin'):
     pass
 
-import pyxhook
-import sys
 
+pasteImg = None
 
-root = tkinter.Tk()
-# 指定窗口的大小
-root.geometry('300x50+1500+400')
-# 不允许改变窗口大小
-root.resizable(False, False)
-root.title("OCR")
-# root.iconbitmap('./icon.ico')
-# root.tk.call('wm', 'iconphoto', root._w, tk.PhotoImage('icon.ico'))
-snip_box = []  # 前面识别的结果窗口
-from PIL import ImageTk, Image
+class PastWindow(tk.Tk):
 
+    def __init__(self, *args, **kw):
+        super().__init__()
+        self.configure(background='black')
+        self.overrideredirect(True)
+        self.width, self.height = 200, 100
+        self.p_x, self.p_y = 100, 130
+        self.isShow = True  # 是否隐藏
+        self.wm_attributes("-alpha", 0.55)      # 透明度
+        # self.wm_attributes("-toolwindow", True)  # 置为工具窗口
+        self.wm_attributes("-topmost", True)  # 永远处于顶层
+        self.bind('<B1-Motion>', self._on_move)
+        self.bind('<ButtonPress-1>', self._on_tap)   # 设置窗口最大化大小
+        self.bind('<Double-Button-1>', self.quit)
+        self.bind('<Button-4>', self.zoom_up)
+        self.bind('<Button-5>', self.zoom_down)
+        self.resizable(width=False, height=True)    # 设置窗口宽度不可变，高度可变
+        self.canvas = None
+        self.geometry("%sx%s+%s+%s" % (1, 1,1, 1))
+        self.cancel = False #是否取消
+        
+        # 缩放比例
+        self.zoom, self.zoom = 1.0, 1.0
+        # 
+        self.screenWidth = self.winfo_screenwidth()
+        self.screenHeight = self.winfo_screenheight()
 
-
-
-class MyCapture:
-
-    def __init__(self, png):
         # 变量X和Y用来记录鼠标左键按下的位置
-        self.X = tkinter.IntVar(value=0)
-        self.Y = tkinter.IntVar(value=0)
-        self.sel = False
-        # 屏幕尺寸
-        self.screenWidth = root.winfo_screenwidth()
-        self.screenHeight = root.winfo_screenheight()
+        self.X = tk.IntVar(value=0)
+        self.Y = tk.IntVar(value=0)
+        
+        filename = 'all.gif'
+        im = ImageGrab.grab()
+        im = ImageEnhance.Brightness(im).enhance(0.9)
+        im.save(filename)
+        im.close()
+        time.sleep(0.1)
         # 创建顶级组件容器
-        self.top = tkinter.Toplevel(
-             width=self.screenWidth, height=self.screenHeight)
+        self.top = tk.Toplevel(
+            self, width=self.screenWidth, height=self.screenHeight)
         # 不显示最大化、最小化按钮
         self.top.overrideredirect(True)
-        self.canvas = tkinter.Canvas(
+
+        self.topcanvas = tk.Canvas(
             self.top,
             bg='white',
             width=self.screenWidth,
             height=self.screenHeight)
-        # 显示全屏截图，在全屏截图上进行区域截图
-        self.image = tkinter.PhotoImage(file=png)
-        self.canvas.create_image(
-            self.screenWidth // 2, self.screenHeight // 2, image=self.image)
-        self.canvas.pack()
 
-        def esc(event):
+        # 绑定鼠标事件
+        
+        def onEscPressd( event):
+            print('top - esc')
+            self.cancel = True
             self.top.destroy()
-        self.top.bind('<Escape>', esc)
-
+            # self.quit(0)
+            # exit()
+        # self.topcanvas.bind('<Escape>', onEscPressd)
+        self.topcanvas.bind('<Button-2>', onEscPressd)
         # 鼠标左键按下的位置
         def onLeftButtonDown(event):
             # pdb.set_trace()
@@ -76,7 +99,7 @@ class MyCapture:
             self.Y.set(event.y)
             # 开始截图
             self.sel = True
-        self.canvas.bind('<Button-1>', onLeftButtonDown)
+        self.topcanvas.bind('<Button-1>', onLeftButtonDown)
 
         # 鼠标左键移动，显示选取的区域
         def onLeftButtonMove(event):
@@ -84,225 +107,241 @@ class MyCapture:
             global lastDraw, r, c
             try:
                 # 删除刚画完的图形，要不然鼠标移动的时候是黑乎乎的一片矩形
-                self.canvas.delete(lastDraw)
-                self.canvas.delete(r)
-                self.canvas.delete(c)
+                self.topcanvas.delete(lastDraw)
+                self.topcanvas.delete(r)
+                self.topcanvas.delete(c)
             except Exception as e:
                 pass
             # 没有点击左键时绘制十字线
-            r = self.canvas.create_line(
+            r = self.topcanvas.create_line(
                 0, event.y, self.screenWidth, event.y, fill='white')
-            c = self.canvas.create_line(
+            c = self.topcanvas.create_line(
                 event.x, 0, event.x, self.screenHeight, fill='white')
             if not self.sel:
                 # print(event.x, event.y, self.screenWidth, self.screenHeight)
                 pass
             else:
-                lastDraw = self.canvas.create_rectangle(
+                lastDraw = self.topcanvas.create_rectangle(
                     self.X.get(),
                     self.Y.get(),
                     event.x, event.y,
                     outline='orange')
                 # print(event.x, event.y, self.screenWidth, self.screenWidth)
-        self.canvas.bind('<B1-Motion>', onLeftButtonMove)
+        self.topcanvas.bind('<B1-Motion>', onLeftButtonMove)
 
         def onMouseMove(event):
             # 不点击时的鼠标移动，绘制十字线
             global r, c
             try:
                 # 删除刚画完的图形，要不然鼠标移动的时候是黑乎乎的一片矩形
-                self.canvas.delete(r)
-                self.canvas.delete(c)
+                self.topcanvas.delete(r)
+                self.topcanvas.delete(c)
             except Exception as e:
                 pass
             # 没有点击左键时绘制十字线
-            r = self.canvas.create_line(
+            r = self.topcanvas.create_line(
                 0, event.y, self.screenWidth, event.y, fill='white')
-            c = self.canvas.create_line(
+            c = self.topcanvas.create_line(
                 event.x, 0, event.x, self.screenHeight, fill='white')
-        self.canvas.bind('<Motion>', onMouseMove)
+        self.topcanvas.bind('<Motion>', onMouseMove)
 
-        def onEscPressd(event):
-            self.top.destroy()
-        self.canvas.bind('<Cancel>', onEscPressd)
 
         # 获取鼠标左键抬起的位置，保存区域截图
         def onLeftButtonUp(event):
-            self.sel = False
             try:
-                self.canvas.delete(lastDraw)
+                self.topcanvas.delete(lastDraw)
             except Exception as e:
                 pass
             time.sleep(0.1)
             # 考虑鼠标左键从右下方按下而从左上方抬起的截图
             left, right = sorted([self.X.get(), event.x])
             top, bottom = sorted([self.Y.get(), event.y])
-
-            self.width, self.height = right - left, bottom - top 
-            self.x, self.y = left, top
-
-            pic = ImageGrab.grab((left + 1, top + 1, right, bottom))
+            self.position = (left , top + 1, right, bottom)
+            print(self.position)
+            self.p_x, self.p_y = left + 2, top + 2
+            self.width, self.height = right - left -1, bottom - top -1
+            self.pic = ImageGrab.grab((left + 1, top + 1, right, bottom))
             # 关闭顶级容器
             self.top.destroy()
             # 弹出保存截图对话框
-            # fileName = tkinter.filedialog.asksaveasfilename(title='保存截图',
-            # filetypes=[('image','*.jpg *.png')])
-            if pic:
-                pic.save('./temp.gif')
-                # 关闭当前窗口
-                # self.top.destroy()
-        self.canvas.bind('<ButtonRelease-1>', onLeftButtonUp)
-        self.canvas.pack(fill=tkinter.BOTH, expand=tkinter.YES)
+            # fileName = tk.filedialog.asksaveasfilename(title='保存截图',
+            #                           filetypes=[('image','*.jpg *.png')])
+            if self.pic:
+                self.pic.save("cut.gif")
+        
+        self.topcanvas.bind('<ButtonRelease-1>', onLeftButtonUp)
+        self.topcanvas.pack(fill=tk.BOTH, expand=tk.YES)
+
+
+        # 显示全屏截图，在全屏截图上进行区域截图
+        self.image = tk.PhotoImage(file=filename)
+        self.topcanvas.create_image(
+            self.screenWidth // 2, self.screenHeight // 2, image=self.image)
+        self.topcanvas.pack()
+
+        self.wait_window(self.top)
+
+
+        
+        if self.cancel:
+            print('self.cancel')
+            self.quit(0)
+            # super().quit()
+            # exit()
+        self.run()
+
+
+        self.geometry("%sx%s" % (self.width, self.height))
+        self.geometry("+%s+%s" % (self.p_x, self.p_y))
+
+        self.refresh_data()
+        self.mainloop()
+
+    def refresh_data(self):
+
+        # self.canvas.delete("all")
+        # 刷新
+        self.update()
+        self.after(1000, self.refresh_data)   # 这里的单位为毫秒
 
     def draw(self):
+        # 初始化
         if(self.canvas):
-            # self.canvas.destroy()
-            pass
+            self.canvas['width'] = self.zoom_width
+            self.canvas['height'] = self.zoom_height
         self.zoom_width = int(self.width * self.zoom)
         self.zoom_height = int(self.height  * self.zoom)
-        self.canvas['width'] = self.zoom_width
-        self.canvas['height'] = self.zoom_height
-        self.img = ImageTk.PhotoImage(Image.open("./temp.gif").resize((self.zoom_width, self.zoom_height),Image.ANTIALIAS))
-        self.canvas.create_image(self.zoom_width // 2 , self.zoom_height // 2 , image=self.img)
-        self.canvas.pack()
-    
-    def show(self):
-        self.zoom = 1
-        self.snip_top = tkinter.Toplevel(width=self.width - 1, height=self.height - 1)
-        self.snip_top.overrideredirect(True)
-        
-        self.canvas = tkinter.Canvas(self.snip_top, bg='white', width=self.width, height=self.height)
+        self.canvas = tk.Canvas(self, width=self.zoom_width,
+                                height=self.zoom_height, bg='white')
+        self.img = ImageTk.PhotoImage(Image.open("./cut.gif").resize((self.zoom_width, self.zoom_height),Image.ANTIALIAS))
+        self.canvas.create_image(self.zoom_width // 2, self.zoom_height // 2, image=self.img)
+        self.canvas.place(x=-1, y=-1)
+
+    def run(self):
+        # 启动时运行
+        # 开始截图
         self.draw()
-        self.snip_top.geometry("+%s+%s" % (self.x, self.y))
+
+    def quit(self, event):
+        print(event)
+        self.destroy()
 
 
-        def _on_move( event):
-            # self.root_x/y  窗口左上角相对屏幕左上角的距离
-            offset_x = event.x_root - self.root_x
-            offset_y = event.y_root - self.root_y
-            
-            abs_x = self.abs_x + offset_x
-            abs_y = self.abs_y + offset_y
+    def _on_move(self, event):
+        # self.root_x/y  窗口左上角相对屏幕左上角的距离
+        offset_x = event.x_root - self.root_x
+        offset_y = event.y_root - self.root_y
 
-            # if self.width and self.height:
-            #     geo_str = "%sx%s+%s+%s" % (self.width, self.height,
-            #                                abs_x,
-            #                                abs_y)
-            # else:
-            geo_str="+%s+%s" % (abs_x, abs_y)
-            self.snip_top.geometry(geo_str)
-        self.snip_top.bind('<B1-Motion>', _on_move)
+        abs_x = self.abs_x + offset_x
+        abs_y = self.abs_y + offset_y
 
-        def _on_tap(event):
-            self.root_x, self.root_y=event.x_root, event.y_root
-            self.abs_x, self.abs_y=self.snip_top.winfo_x(), self.snip_top.winfo_y()
-        self.snip_top.bind("<Button-1>", _on_tap)
+        # if self.width and self.height:
+        #     geo_str = "%sx%s+%s+%s" % (self.width, self.height,
+        #                                abs_x,
+        #                                abs_y)
+        # else:
+        geo_str="+%s+%s" % (abs_x, abs_y)
+        self.geometry(geo_str)
 
-        def zoom_up(event):
-            self.zoom += 0.1 
-            # self.width *= self.zoom
-            # self.height *= self.zoom
-            self.draw()
-            self.snip_top.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
-        self.snip_top.bind('<Button-4>', zoom_up)
-        def zoom_down(event):
-            self.zoom -= 0.1 
-            self.draw()
-            self.snip_top.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
-        self.snip_top.bind('<Button-5>', zoom_down)
-        
-        def quit(event):
-            self.snip_top.destroy()
-            root.state('normal')
-        self.snip_top.bind('<Double-Button-1>', quit)
+    def _on_tap(self, event):
+        self.root_x, self.root_y=event.x_root, event.y_root
+        self.abs_x, self.abs_y=self.winfo_x(), self.winfo_y()
 
-new_hook=pyxhook.HookManager()
-keys = ['Control_L', 'Alt_L', 'f']
+    def zoom_up(self, event):
+        self.zoom += 0.1 
+        self.draw()
+        self.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
+    
+    def zoom_down(self, event):
+        self.zoom -= 0.1 
+        self.draw()
+        self.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
+    
+
+
+
+lock = './lock.lock'
+isrun = False
+
+
+@atexit.register
+def exit():
+    # q_tk.queue.clear()
+    # global wintemp
+    # del(wintemp)
+    if((not isrun) and os.path.exists(lock)):
+        os.remove(lock)
 # 监听键盘
 ctrl , alt, f, cap = False, False, False, False
-def onkeypress(e):
-    global ctrl, alt, f, cap
-    if(cap):
-        buttonCaptureClick()
-        ctrl, alt, f, cap = False, False, False,False
-    k = e.Key
-    if(k in keys):
-        if(k == keys[0]):
-            ctrl = True
-            print('ctrl')
-            return
-        if(ctrl == True and k == keys[1]):
-            alt = True
-            print('ctrl-alt')
-            return
-        else:
-            ctrl = False
-            print('ctrl - no alt')
-        if(alt == True and k == keys[2]):
-            f = True
-            cap = True
-            print('capture')
+def key_listen():
+    new_hook=pyxhook.HookManager()
+    keys = ['Control_L', 'Alt_L', 'f']
+    
+    def onkeypress(e):
+        global ctrl, alt, f, cap
+        if(cap):
+            # PastWindow()
+            ctrl, alt, f, cap = False, False, False,False
+        k = e.Key
+        if(k in keys):
+            if(k == keys[0]):
+                ctrl = True
+                print('ctrl')
+                return
+            if(ctrl == True and k == keys[1]):
+                alt = True
+                print('ctrl-alt')
+                return
+            else:
+                ctrl = False
+                print('ctrl - no alt')
+            if(alt == True and k == keys[2]):
+                f = True
+                cap = True
+                print(' -- capture -- ')
+                ctrl, alt, f, cap = False, False, False,False
+
+                PastWindow()
+            else:
+                print('ctrl - alt not f')
+                ctrl , alt, f = False, False, False
         else:
             ctrl , alt, f = False, False, False
+    def onkeyup(e):
+        global ctrl, alt, f
+        k = e.Key
+        if(k in keys):
+            ctrl , alt, f = False, False, False
+
+
+    new_hook.KeyDown=onkeypress
+    new_hook.KeyUp = onkeyup
+    new_hook.HookKeyboard()
+    new_hook.start()
+    print("监听按键")
+
+
+if __name__ == '__main__':
+    pid=0
+    if(os.path.exists(lock)):
+        with open(lock, 'r', encoding = 'utf-8') as f:
+            pid=int(f.read())
+        if(psutil.pid_exists(pid)):
+            print('已有实例运行')
+            isrun=True
+            m=tk.Tk()
+            m.withdraw()
+            tk.messagebox.showerror('错误', '已有实例在运行')
+            m.destroy()
+            sys.exit(0)
+        else:
+            print('运行实例失效')
     else:
-        ctrl , alt, f = False, False, False
-def onkeyup(e):
-    global ctrl, alt, f
-    k = e.Key
-    if(k in keys):
-        if(k == keys[0]):
-            ctrl = False
-        if(k == keys[1]):
-            alt = False
-        if(k == keys[2]):
-            f = False
-
-
-new_hook.KeyDown=onkeypress
-new_hook.HookKeyboard()
-new_hook.start()
-
-# 开始截图
-
-
-def buttonCaptureClick():
-    # 最小化主窗口
-    root.state('icon')
-    time.sleep(0.1)
-    filename = 'temp.gif'
-    im = ImageGrab.grab()
-    im = ImageEnhance.Brightness(im).enhance(0.8)
-    im.save(filename)
-    im.close()
-    # 显示全屏幕截图
-    w = MyCapture(filename)
-    snip_box.append(w)
-    buttonCapture.wait_window(w.top)
-    # pdb.set_trace()
-    # result = w.getText()
-    w.show()
-    # printresult(result)
-    # 截图结束，恢复主窗口，并删除临时的全屏幕截图文件
-
-
-
-
-
-def key(event):
-    buttonCaptureClick()
-root.bind('<Control-Alt-f>', key)
-def quit(event):
-    new_hook.cancel()
-    exit(0)
-root.bind('<Double-Button-1>', quit)
-
-buttonCapture = tkinter.Button(root, text='截图', command=buttonCaptureClick)
-buttonCapture.place(x=110, y=10, width=80, height=30)
-# 启动消息主循环
-try:
+        # print('未在运行')
+        pass
+    pid=os.getpid()
+    with open(lock, 'w', encoding = 'utf-8') as f:
+        f.write(str(pid))
+    # pastw=PastWindow()
+    key_listen()
     
-    # buttonCaptureClick()
-    root.mainloop()
-except Exception as e:
-    root.destroy()
-    new_hook.stop()

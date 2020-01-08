@@ -7,13 +7,13 @@
 
 import tkinter as tk
 from tkinter.messagebox import *
-import psutil
 import os
 import atexit
 import threading
 import time
 import sys
-import psutil, pdb
+
+import pyxhook
 
 from PIL import Image, ImageTk, ImageEnhance
 
@@ -51,6 +51,8 @@ class PastWindow(tk.Tk):
         self.bind('<Button-5>', self.zoom_down)
         self.resizable(width=False, height=True)    # 设置窗口宽度不可变，高度可变
         self.canvas = None
+        self.geometry("%sx%s+%s+%s" % (1, 1,1, 1))
+        self.cancel = False #是否取消
         
         # 缩放比例
         self.zoom, self.zoom = 1.0, 1.0
@@ -64,7 +66,7 @@ class PastWindow(tk.Tk):
         
         filename = 'all.gif'
         im = ImageGrab.grab()
-        im = ImageEnhance.Brightness(im).enhance(0.8)
+        im = ImageEnhance.Brightness(im).enhance(0.9)
         im.save(filename)
         im.close()
         time.sleep(0.1)
@@ -81,6 +83,15 @@ class PastWindow(tk.Tk):
             height=self.screenHeight)
 
         # 绑定鼠标事件
+        
+        def onEscPressd( event):
+            print('top - esc')
+            self.cancel = True
+            self.top.destroy()
+            # self.quit(0)
+            # exit()
+        # self.topcanvas.bind('<Escape>', onEscPressd)
+        self.topcanvas.bind('<Button-2>', onEscPressd)
         # 鼠标左键按下的位置
         def onLeftButtonDown(event):
             # pdb.set_trace()
@@ -134,9 +145,6 @@ class PastWindow(tk.Tk):
                 event.x, 0, event.x, self.screenHeight, fill='white')
         self.topcanvas.bind('<Motion>', onMouseMove)
 
-        def onEscPressd( event):
-            self.top.destroy()
-        self.topcanvas.bind('<Cancel>', onEscPressd)
 
         # 获取鼠标左键抬起的位置，保存区域截图
         def onLeftButtonUp(event):
@@ -175,7 +183,11 @@ class PastWindow(tk.Tk):
 
 
         
-        
+        if self.cancel:
+            print('self.cancel')
+            self.quit(0)
+            # super().quit()
+            # exit()
         self.run()
 
 
@@ -211,12 +223,9 @@ class PastWindow(tk.Tk):
         self.draw()
 
     def quit(self, event):
+        print(event)
         self.destroy()
 
-    def switch_icon(self, _sysTrayIcon, icons='favicon.ico'):
-        self.sysTrayIcon.icon = icons
-        self.sysTrayIcon.refresh_icon()
-        # 点击右键菜单项目会传递SysTrayIcon自身给引用的函数，所以这里的_sysTrayIcon = s.sysTrayIcon
 
     def _on_move(self, event):
         # self.root_x/y  窗口左上角相对屏幕左上角的距离
@@ -241,13 +250,11 @@ class PastWindow(tk.Tk):
     def zoom_up(self, event):
         self.zoom += 0.1 
         self.draw()
-        # self.run()
         self.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
     
     def zoom_down(self, event):
         self.zoom -= 0.1 
         self.draw()
-        # self.run()
         self.geometry('%sx%s' % (int(self.width * self.zoom), int(self.height * self.zoom)))
     
 
@@ -264,6 +271,54 @@ def exit():
     # del(wintemp)
     if((not isrun) and os.path.exists(lock)):
         os.remove(lock)
+# 监听键盘
+ctrl , alt, f, cap = False, False, False, False
+def key_listen():
+    new_hook=pyxhook.HookManager()
+    keys = ['Control_L', 'Alt_L', 'f']
+    
+    def onkeypress(e):
+        global ctrl, alt, f, cap
+        if(cap):
+            # PastWindow()
+            ctrl, alt, f, cap = False, False, False,False
+        k = e.Key
+        if(k in keys):
+            if(k == keys[0]):
+                ctrl = True
+                print('ctrl')
+                return
+            if(ctrl == True and k == keys[1]):
+                alt = True
+                print('ctrl-alt')
+                return
+            else:
+                ctrl = False
+                print('ctrl - no alt')
+            if(alt == True and k == keys[2]):
+                f = True
+                cap = True
+                print(' -- capture -- ')
+                ctrl, alt, f, cap = False, False, False,False
+
+                PastWindow()
+            else:
+                print('ctrl - alt not f')
+                ctrl , alt, f = False, False, False
+        else:
+            ctrl , alt, f = False, False, False
+    def onkeyup(e):
+        global ctrl, alt, f
+        k = e.Key
+        if(k in keys):
+            ctrl , alt, f = False, False, False
+
+
+    new_hook.KeyDown=onkeypress
+    new_hook.KeyUp = onkeyup
+    new_hook.HookKeyboard()
+    new_hook.start()
+    print("监听按键")
 
 
 if __name__ == '__main__':
@@ -287,4 +342,6 @@ if __name__ == '__main__':
     pid=os.getpid()
     with open(lock, 'w', encoding = 'utf-8') as f:
         f.write(str(pid))
-    pastw=PastWindow()
+    # pastw=PastWindow()
+    key_listen()
+    
